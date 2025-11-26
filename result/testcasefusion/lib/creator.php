@@ -1,41 +1,13 @@
 <?php
-defined('B_PROLOG_INCLUDED') && B_PROLOG_INCLUDED === true or die();
 
+namespace Testcasefusion;
 use Bitrix\Main\ModuleManager;
 use Bitrix\Main\Loader;
 use Bitrix\Main\Config\Option;
 
-class testcasefusion extends CModule
+class Creator
 {
-    public $MODULE_ID = 'testcasefusion';
-    public $MODULE_VERSION = '1.0.0';
-    public $MODULE_VERSION_DATE = '2025-11-25 12:00:00';
-    public $MODULE_NAME = 'Test Case Fusion';
-    public $MODULE_DESCRIPTION = 'Модуль для управления тест-кейсами с автоматическими уведомлениями';
-
-    public function DoInstall()
-    {
-        ModuleManager::registerModule($this->MODULE_ID);
-
-        if (!Loader::includeModule('crm')) {
-            file_put_contents(
-                $_SERVER['DOCUMENT_ROOT'] . '/testcasefusion_install.log',
-                date('Y-m-d H:i:s') . " - ERROR: CRM module not found\n",
-                FILE_APPEND
-            );
-            return true;
-        }
-
-        $this->CreateSmartProcess();
-        return true;
-    }
-
-    public function DoUninstall()
-    {
-        ModuleManager::unRegisterModule($this->MODULE_ID);
-    }
-
-    private function CreateSmartProcess()
+    public static function CreateSmartProcess($moduleId)
     {
         if (!Loader::includeModule('crm')) {
             return false;
@@ -57,21 +29,21 @@ class testcasefusion extends CModule
 
             // Создаем через TypeTable
             if (class_exists('Bitrix\Crm\Model\Dynamic\TypeTable')) {
-                $result = Bitrix\Crm\Model\Dynamic\TypeTable::add($data);
+                $result = \Bitrix\Crm\Model\Dynamic\TypeTable::add($data);
 
                 if ($result->isSuccess()) {
                     $typeId = $result->getId();
 
                     // Сохраняем ID для будущего использования
-                    Option::set($this->MODULE_ID, 'smart_process_type_id', $typeId);
-                    Option::set($this->MODULE_ID, 'smart_process_entity_type_id', $entityTypeId);
+                    Option::set($moduleId, 'smart_process_type_id', $typeId);
+                    Option::set($moduleId, 'smart_process_entity_type_id', $entityTypeId);
 
                     // Создаем поля
-                    $fieldsResult = $this->CreateFields($typeId);
+                    $fieldsResult = self::CreateFields($typeId);
 
                     // Создаем бизнес-процесс (если доступен модуль bizproc)
                     if (Loader::includeModule('bizproc')) {
-                        $bpResult = $this->CreateBusinessProcess($typeId, $entityTypeId);
+                        $bpResult = self::CreateBusinessProcess($typeId, $entityTypeId);
                     } else {
                         file_put_contents(
                             $_SERVER['DOCUMENT_ROOT'] . '/testcasefusion_install.log',
@@ -100,7 +72,7 @@ class testcasefusion extends CModule
         }
     }
 
-    private function CreateFields($typeId)
+    public static function CreateFields($typeId)
     {
         if (!Loader::includeModule('crm')) {
             return false;
@@ -108,14 +80,14 @@ class testcasefusion extends CModule
 
         try {
             // Получаем тип для получения кода
-            $type = Bitrix\Crm\Model\Dynamic\TypeTable::getById($typeId)->fetch();
+            $type = \Bitrix\Crm\Model\Dynamic\TypeTable::getById($typeId)->fetch();
             if (!$type) {
                 return false;
             }
 
             $entityId = 'CRM_' . $typeId;
 
-            $userTypeEntity = new CUserTypeEntity();
+            $userTypeEntity = new \CUserTypeEntity();
 
             // Поле "Описание"
             $descriptionField = [
@@ -154,7 +126,7 @@ class testcasefusion extends CModule
             $statusFieldId = $userTypeEntity->Add($statusField);
 
             if ($statusFieldId) {
-                $enum = new CUserFieldEnum();
+                $enum = new \CUserFieldEnum();
                 $enum->SetEnumValues($statusFieldId, [
                     'n0' => ['VALUE' => 'Новый', 'DEF' => 'Y', 'SORT' => 100],
                     'n1' => ['VALUE' => 'В работе', 'DEF' => 'N', 'SORT' => 200],
@@ -181,7 +153,7 @@ class testcasefusion extends CModule
             $priorityFieldId = $userTypeEntity->Add($priorityField);
 
             if ($priorityFieldId) {
-                $enum = new CUserFieldEnum();
+                $enum = new \CUserFieldEnum();
                 $enum->SetEnumValues($priorityFieldId, [
                     'n0' => ['VALUE' => 'Низкий', 'DEF' => 'Y', 'SORT' => 100],
                     'n1' => ['VALUE' => 'Средний', 'DEF' => 'N', 'SORT' => 200],
@@ -200,7 +172,7 @@ class testcasefusion extends CModule
         }
     }
 
-    private function CreateBusinessProcess($typeId, $entityTypeId)
+    public static function CreateBusinessProcess($typeId, $entityTypeId)
     {
         try {
 
@@ -297,7 +269,7 @@ class testcasefusion extends CModule
                 'MODIFIER_USER' => 1,
             ];
 
-            $result = CBPWorkflowTemplateLoader::Add($template);
+            $result = \CBPWorkflowTemplateLoader::Add($template);
 
             return $result;
         } catch (Exception $e) {
